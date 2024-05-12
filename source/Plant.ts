@@ -6,13 +6,15 @@ class Plant {
    seeds.setPlanting(BlockID[this.keyword + "_plant"], farmlands);
    return seeds;
   }
-  constructor(public keyword: string, public stages: int, level = 1, farmlands: int[], essence_id: string) {
+  constructor(public keyword: string, public stages: int, level = 1, farmlands: int[], essence_id: string, public type: string = "plant") {
     this.createBlock();
     this.randomCheckToDestroyIfNeeded();
     this.setupGrowing();
     this.growByFertilizers();
     this.createSeeds(level, farmlands);
     this.registerDrop(essence_id);
+    Item.addCreativeGroup("creative_group.agriculture_core.seeds", "seeds",
+     [ItemID[this.keyword + "_seeds"]]);
   }
 
   public static growCustom(
@@ -24,19 +26,22 @@ class Plant {
     player: int
   ) {
     if (item.id !== ItemID[fertilizer]) return;
+    const actor = new PlayerActor(player);
     for (let i = 0; i < 16; i++) {
       const px = coords.x + Math.random();
       const pz = coords.z + Math.random();
       const py = coords.y + Math.random();
       Particles.addParticle(37, px, py, pz, 0, 0, 0);
     }
-   return World.setBlock(coords.x, coords.y, coords.z, block.id, data);
+   return World.setBlock(coords.x, coords.y, coords.z, block.id, data),
+   actor.getGameMode() !== EGameMode.CREATIVE && 
+   Entity.setCarriedItem(player, item.id, item.count - 1, item.data, item.extra)
   }
   public growByFertilizers() {
     Block.registerClickFunctionForID(
       BlockID[this.keyword + "_plant"],
       (coords, item, block, player) => {
-        Game.message("Plant.block_data: " + block.data);
+        const random = randomInt(1, 6);
         return Plant.growCustom(
           "mystical_fertilizer",
           this.stages,
@@ -47,7 +52,7 @@ class Plant {
         ),
         Plant.growCustom(
           "fertilized_essence",
-          block.data < this.stages ? block.data + 1 : block.data,
+           random < this.stages ? random : Math.abs(block.data - random),
           coords,
           item,
           block,
@@ -60,13 +65,13 @@ class Plant {
     const datas = [];
     const id = this.keyword + "_plant";
     for (let i = 0; i <= this.stages; i++) {
+      const condition = i <= this.stages - 1 ? `${this.type}_resources` : id;
       datas.push({
-        name: id + "_" + i,
-        texture: [[id, i]],
+        name: condition,
+        texture: [[condition, i <= this.stages - 1 ? i : 0]],
         inCreative: false,
       });
     };
-    Game.message("" + datas);
     IDRegistry.genBlockID(id);
     Block.createBlock(id, datas, PLANT_BLOCKTYPE);
     Block.setBlockShape(
@@ -83,7 +88,7 @@ class Plant {
           region.getBlockId(coords.x, coords.y - 1, coords.z) !==
           VanillaBlockID.farmland
         ) {
-         return World.destroyBlock(coords.x, coords.y, coords.z);
+         return region.destroyBlock(coords.x, coords.y, coords.z);
         }
       }
     );
@@ -97,7 +102,7 @@ class Plant {
         blockData: number
       ) => {
         const essence =
-          Math.floor(Math.random() * 100 + 1) <= 10
+          Math.random() <= 0.1
             ? [ItemID["fertilized_essence"], 1, 0]
             : ([0, 0, 0] as any);
         return blockData >= this.stages
@@ -115,7 +120,6 @@ class Plant {
       BlockID[this.keyword + "_plant"],
       (x, y, z, id, data, region) => {
         if (region.getLightLevel(x, y, z) >= 9) {
-          Game.message("Случайное обновление блока -> дата блока: " + data)
           return region.setBlock(x, y, z, id, data < this.stages ? data + 1 : data);
         }
       }

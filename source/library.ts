@@ -17,10 +17,11 @@ const PLANT_BLOCKTYPE = Block.createSpecialType({
   renderlayer: 3,
   translucency: 0,
   lightopacity: 0,
-  lightlevel: 7,
-  rendertype: 91,
+  destroytime: 0, 
+  rendertype: 1,
   sound: "grass"
-});
+}, "crop");
 
 
 Translation.addTranslation("Level: ", {en: "Level: ", ru: "Уровень: "});
+Translation.addTranslation("seeds", {en: "Seeds", ru: "Семена"});
