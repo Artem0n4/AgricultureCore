@@ -22,12 +22,18 @@ class Seeds {
   public setLevel(level: int) {
     let color: Native.Color;
     switch(level) {
-      case 1: color = Native.Color.YELLOW;
-      case 2: color = Native.Color.GREEN;
-      case 3: color = Native.Color.GOLD;
-      case 4: color = Native.Color.BLUE;
-      case 5: color = Native.Color.RED;
-      default: color = Native.Color.YELLOW;
+      case 1: color = Native.Color.YELLOW
+      break;
+      case 2: color = Native.Color.GREEN
+      break;
+      case 3: color = Native.Color.GOLD
+      break;
+      case 4: color = Native.Color.BLUE
+      break;
+      case 5: color = Native.Color.RED
+      break;
+      default: color = Native.Color.YELLOW
+      break;
     }
     Item.registerNameOverrideFunction(this.id, function (item, name) {
       return `${Translation.translate(
@@ -43,6 +49,7 @@ class Seeds {
   ) {
     const region = BlockSource.getDefaultForActor(player);
     const item = Entity.getCarriedItem(player);
+    const actor = new PlayerActor(player);
     return (
       region.setBlock(
         coords.x,
@@ -51,7 +58,7 @@ class Seeds {
         typeof block_id !== "number" ? BlockID[block_id] : block_id,
         0
       ),
-      Entity.setCarriedItem(
+     actor.getGameMode() !== EGameMode.CREATIVE && Entity.setCarriedItem(
         player,
         item.id,
         item.count - 1,
