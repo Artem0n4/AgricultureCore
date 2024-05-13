@@ -37,12 +37,24 @@ var Seeds = /** @class */ (function () {
     Seeds.prototype.setLevel = function (level) {
         var color;
         switch (level) {
-            case 1: color = Native.Color.YELLOW;
-            case 2: color = Native.Color.GREEN;
-            case 3: color = Native.Color.GOLD;
-            case 4: color = Native.Color.BLUE;
-            case 5: color = Native.Color.RED;
-            default: color = Native.Color.YELLOW;
+            case 1:
+                color = Native.Color.YELLOW;
+                break;
+            case 2:
+                color = Native.Color.GREEN;
+                break;
+            case 3:
+                color = Native.Color.GOLD;
+                break;
+            case 4:
+                color = Native.Color.BLUE;
+                break;
+            case 5:
+                color = Native.Color.RED;
+                break;
+            default:
+                color = Native.Color.YELLOW;
+                break;
         }
         Item.registerNameOverrideFunction(this.id, function (item, name) {
             return "".concat(Translation.translate(name), "\n").concat(Native.Color.GRAY).concat(Translation.translate("Level: ") + color + level);
@@ -52,8 +64,9 @@ var Seeds = /** @class */ (function () {
     Seeds.prototype.plantById = function (block_id, coords, player) {
         var region = BlockSource.getDefaultForActor(player);
         var item = Entity.getCarriedItem(player);
+        var actor = new PlayerActor(player);
         return (region.setBlock(coords.x, coords.y + 1, coords.z, typeof block_id !== "number" ? BlockID[block_id] : block_id, 0),
-            Entity.setCarriedItem(player, item.id, item.count - 1, item.data, item.extra),
+            actor.getGameMode() !== EGameMode.CREATIVE && Entity.setCarriedItem(player, item.id, item.count - 1, item.data, item.extra),
             Commands.execAt("playsound dig.grass @a[r=16] ~~~ 0.6 0.8", coords.x, coords.y, coords.z));
     };
     Seeds.prototype.setPlanting = function (plant, farmlands) {
@@ -80,7 +93,9 @@ var Plant = /** @class */ (function () {
         this.growByFertilizers();
         this.createSeeds(level, farmlands);
         this.registerDrop(essence_id);
-        Item.addCreativeGroup("creative_group.agriculture_core.seeds", "seeds", [ItemID[this.keyword + "_seeds"]]);
+        Item.addCreativeGroup("creative_group.agriculture_core.seeds", "seeds", [
+            ItemID[this.keyword + "_seeds"],
+        ]);
     }
     Plant.prototype.createSeeds = function (level, farmlands) {
         var seeds = new Seeds(this.keyword);
@@ -89,7 +104,7 @@ var Plant = /** @class */ (function () {
         seeds.setPlanting(BlockID[this.keyword + "_plant"], farmlands);
         return seeds;
     };
-    Plant.growCustom = function (fertilizer, data, coords, item, block, player) {
+    Plant.growCustom = function (fertilizer, data, coords, item, block, player, stages) {
         if (item.id !== ItemID[fertilizer])
             return;
         var actor = new PlayerActor(player);
@@ -97,18 +112,20 @@ var Plant = /** @class */ (function () {
             var px = coords.x + Math.random();
             var pz = coords.z + Math.random();
             var py = coords.y + Math.random();
-            Particles.addParticle(37, px, py, pz, 0, 0, 0);
+            Particles.addParticle(Plant.GROW_PARTICLES, px, py, pz, 0, 0, 0);
         }
-        return World.setBlock(coords.x, coords.y, coords.z, block.id, data),
-            actor.getGameMode() !== EGameMode.CREATIVE &&
-                Entity.setCarriedItem(player, item.id, item.count - 1, item.data, item.extra);
+        return (World.setBlock(coords.x, coords.y, coords.z, block.id, data),
+            (actor.getGameMode() !== EGameMode.CREATIVE || block.data < stages) &&
+                Entity.setCarriedItem(player, item.id, item.count - 1, item.data, item.extra));
     };
     Plant.prototype.growByFertilizers = function () {
         var _this = this;
         Block.registerClickFunctionForID(BlockID[this.keyword + "_plant"], function (coords, item, block, player) {
             var random = randomInt(1, 6);
-            return Plant.growCustom("mystical_fertilizer", _this.stages, coords, item, block, player),
-                Plant.growCustom("fertilized_essence", random < _this.stages ? random : Math.abs(block.data - random), coords, item, block, player);
+            return (Plant.growCustom("mystical_fertilizer", _this.stages, coords, item, block, player, _this.stages),
+                Plant.growCustom("fertilized_essence", random < _this.stages
+                    ? random
+                    : block.data + Math.abs(block.data - random), coords, item, block, player, _this.stages));
         });
     };
     Plant.prototype.createBlock = function () {
@@ -122,7 +139,6 @@ var Plant = /** @class */ (function () {
                 inCreative: false,
             });
         }
-        ;
         IDRegistry.genBlockID(id);
         Block.createBlock(id, datas, PLANT_BLOCKTYPE);
         Block.setBlockShape(BlockID[id], { x: 0, y: 0, z: 0 }, { x: 1, y: 0.001, z: 1 });
@@ -145,19 +161,21 @@ var Plant = /** @class */ (function () {
                 ? [
                     [ItemID[_this.keyword + "_seeds"], randomInt(1, 3), 0],
                     [ItemID[essence_id], 1, 0],
-                    essence
+                    essence,
                 ]
-                : [[ItemID[_this.keyword + "_seeds", 1, 0]]];
+                : [[ItemID[(_this.keyword + "_seeds", 1, 0)]]];
         });
     };
     Plant.prototype.setupGrowing = function () {
         var _this = this;
         Block.setRandomTickCallback(BlockID[this.keyword + "_plant"], function (x, y, z, id, data, region) {
-            if (region.getLightLevel(x, y, z) >= 9) {
+            if (region.getLightLevel(x, y, z) >= Plant.MAX_GROW_LIGHTLEVEL) {
                 return region.setBlock(x, y, z, id, data < _this.stages ? data + 1 : data);
             }
         });
     };
+    Plant.MAX_GROW_LIGHTLEVEL = 9;
+    Plant.GROW_PARTICLES = 37;
     return Plant;
 }());
 //EXPORT("ModItem",ModItem);
